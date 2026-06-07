@@ -6,6 +6,7 @@ from gtts import gTTS
 import pygame
 import time
 
+
 def capture_image(output_filename="captured_label.jpg"):
     """
     ฟังก์ชันสำหรับเปิดกล้องและถ่ายภาพ
@@ -26,7 +27,7 @@ def capture_image(output_filename="captured_label.jpg"):
         if not ret:
             print("ไม่สามารถรับภาพจากกล้องได้")
             break
-        
+
         cv2.imshow("Camera - Press SPACE to Capture, ESC to Exit", frame)
 
         k = cv2.waitKey(1)
@@ -45,11 +46,12 @@ def capture_image(output_filename="captured_label.jpg"):
     cv2.destroyAllWindows()
     return captured_path
 
+
 def iapp_thai_ocr(image_path, api_key):
     """
     ฟังก์ชันสำหรับทำ OCR ภาษาไทยโดยใช้ iApp Technology API (v3)
     """
-    url = "https://api.iapp.co.th/v3/store/ocr/document/ocr" 
+    url = "https://api.iapp.co.th/v3/store/ocr/document/ocr"
     headers = {"apikey": api_key}
 
     try:
@@ -58,16 +60,19 @@ def iapp_thai_ocr(image_path, api_key):
             response = requests.post(url, headers=headers, files=files)
 
             if response.status_code != 200:
-                return f"เกิดข้อผิดพลาดจาก API ({response.status_code}): {response.text}"
+                return (
+                    f"เกิดข้อผิดพลาดจาก API ({response.status_code}): {response.text}"
+                )
 
             result = response.json()
-            if 'text' in result:
-                return result['text']
+            if "text" in result:
+                return result["text"]
             else:
                 return "ไม่พบข้อความในรูปภาพ"
 
     except Exception as e:
         return f"เกิดข้อผิดพลาดในการเชื่อมต่อ: {e}"
+
 
 def speak_thai(text):
     """
@@ -75,7 +80,7 @@ def speak_thai(text):
     """
     if isinstance(text, list):
         text = " ".join(text)
-    
+
     if text:
         text = text.replace("\n", " ")
 
@@ -85,7 +90,7 @@ def speak_thai(text):
 
     try:
         print("\nกำลังแปลงข้อความเป็นเสียง...")
-        tts = gTTS(text=text, lang='th')
+        tts = gTTS(text=text, lang="th")
         filename = "ocr_voice.mp3"
         tts.save(filename)
 
@@ -96,15 +101,18 @@ def speak_thai(text):
         print("กำลังเล่นเสียง... (กด Ctrl+C เพื่อหยุด)")
         while pygame.mixer.music.get_busy():
             time.sleep(0.5)
-        
+
         pygame.mixer.quit()
 
     except Exception as e:
         print(f"เกิดข้อผิดพลาดในการเล่นเสียง: {e}")
 
+
 if __name__ == "__main__":
     # --- ส่วนที่ต้องตั้งค่า ---
-    MY_IAPP_KEY = "iapp_live_1e1599dcefdf16db1805f0df538e17c402dc5d2879445c4a9af4d426c1d12138" 
+    MY_IAPP_KEY = (
+        "iapp_live_5a9f03703184b1e83a409c5394d2e69ce790cddb835b9ba73c32a21093d6d210"
+    )
     # -----------------------
 
     print("--- 1. เปิดกล้องเพื่อถ่ายภาพฉลากยา ---")
@@ -113,7 +121,7 @@ if __name__ == "__main__":
     if image_path and os.path.exists(image_path):
         print(f"\n--- 2. เริ่มต้นการ OCR ภาพ: {image_path} ---")
         ocr_result = iapp_thai_ocr(image_path, MY_IAPP_KEY)
-        
+
         print("\n--- 3. ผลลัพธ์ OCR ภาษาไทย ---")
         print(ocr_result)
 
