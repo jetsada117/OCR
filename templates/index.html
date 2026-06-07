@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medicine OCR for Blind</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            color: #FFFF00;
+            font-family: 'Sarabun', sans-serif;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #video-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            background: rgba(0, 0, 0, 0.4);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        #status-text {
+            font-size: 3rem;
+            font-weight: bold;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 5px solid #FFFF00;
+            border-radius: 20px;
+            max-width: 80%;
+        }
+
+        canvas {
+            display: none;
+        }
+    </style>
+</head>
+<body onclick="manualCapture()">
+
+    <div id="video-container">
+        <video id="video" autoplay playsinline></video>
+    </div>
+
+    <div id="overlay">
+        <div id="status-text" aria-live="assertive">
+            กำลังเริ่มระบบ...<br>แตะที่ไหนก็ได้เพื่ออ่านยา
+        </div>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const statusText = document.getElementById('status-text');
+        let isProcessing = false;
+
+        // เริ่มต้นใช้งานกล้อง
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment" } 
+                });
+                video.srcObject = stream;
+                speak("ระบบพร้อมใช้งานแล้ว ให้นำฉลากยามาไว้หน้ากล้อง หรือแตะที่หน้าจอเพื่อเริ่มอ่าน");
+                statusText.innerHTML = "ระบบพร้อมใช้งาน<br>แตะที่จอเพื่ออ่านยา";
+                
+                // เริ่ม Auto-Capture ทุกๆ 10 วินาที
+                setInterval(autoCapture, 10000);
+            } catch (err) {
+                console.error("Camera Error:", err);
+                statusText.innerHTML = "ไม่สามารถเปิดกล้องได้";
+                speak("ไม่สามารถเปิดกล้องได้ กรุณาตรวจสอบสิทธิ์การเข้าถึง");
+            }
+        }
+
+        function speak(text) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'th-TH';
+            utterance.rate = 0.9;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function autoCapture() {
+            if (!isProcessing) {
+                console.log("Auto capturing...");
+                captureAndProcess();
+            }
+        }
+
+        function manualCapture() {
+            if (isProcessing) return;
+            speak("กำลังถ่ายภาพ");
+            captureAndProcess();
+        }
+
+        async function captureAndProcess() {
+            isProcessing = true;
+            statusText.innerHTML = "กำลังอ่านฉลากยา...";
+            
+            // วาดรูปจาก Video ลง Canvas
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const imageData = canvas.toDataURL('image/jpeg', 0.8);
+
+            try {
+                const response = await fetch('/process', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: imageData })
+                });
+                
+                const data = await response.json();
+                
+                if (data.text) {
+                    statusText.innerHTML = data.text;
+                    speak(data.text);
+                } else {
+                    statusText.innerHTML = "ไม่พบข้อความ";
+                    speak("ไม่พบข้อความบนฉลากยา");
+                }
+            } catch (err) {
+                console.error("Process Error:", err);
+                statusText.innerHTML = "เกิดข้อผิดพลาด";
+                speak("เกิดข้อผิดพลาดในการประมวลผล");
+            } finally {
+                // รอ 5 วินาทีหลังจากอ่านจบ ค่อยเริ่มใหม่
+                setTimeout(() => {
+                    isProcessing = false;
+                    statusText.innerHTML = "พร้อมใช้งาน<br>แตะที่จอเพื่ออ่านอีกครั้ง";
+                }, 5000);
+            }
+        }
+
+        // เริ่มต้นระบบ
+        window.onload = startCamera;
+    </script>
+</body>
+</html>
